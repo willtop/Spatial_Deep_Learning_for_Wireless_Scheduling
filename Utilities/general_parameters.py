@@ -1,54 +1,29 @@
-# Storing all general parameters about environmental settings
+# This script contains all environmental numerical settings for our simulations
+# for the work "Spatial Deep Learning for Wireless Scheduling",
+# available at https://ieeexplore.ieee.org/document/8664604.
+
+# For any reproduce, further research or development, please kindly cite our JSAC journal paper:
+# @Article{spatial_learn,
+#    author = "W. Cui and K. Shen and W. Yu",
+#    title = "Spatial Deep Learning for Wireless Scheduling",
+#    journal = "{\it IEEE J. Sel. Areas Commun.}",
+#    year = 2019,
+#    volume = 37,
+#    issue = 6,
+#    pages = "1248-1261",
+#    month = "June",
+# }
 
 import numpy as np
 
 class parameters():
-    def __init__(self, pairs_amount=50):
-        # general training setting
-        self.pairs_amount = pairs_amount
-        self.field_length = 500 # originally was 1000 X 1000 for FP paper assumption
-        self.train_data_info = {"layouts": 500000,
-                                "slots_per_layout": 1,
-                                "folder": "Train/"}
-        self.valid_data_info = {"layouts": 1000,
-                                "slots_per_layout": 1,
-                                "folder": "Valid/"}
-        self.test_data_info = {"layouts": 20,
-                               "slots_per_layout": 500,
-                               "folder": "Test/"}
-        self.data_info = {"train": self.train_data_info,
-                          "valid": self.valid_data_info,
-                          "test": self.test_data_info}
-        # self.base_dir = "C:/Users/willc1/Documents/Github/Master_Communication/" # subject to change when running from different machines
-        self.base_dir = "/home/will/Master_Communication/" # subject to change when running from different machines
-        # self.base_dir = "/home/ubuntu/Master_Communication/" # subject to change when running from different machines
-        # FPLinQ setting
-        self.FP_iter_amount = 100
-        self.quantize_levels = 2  # power control setting
-        self.alpha = 0.95  # for weights updates
-        # for files saved after generation
-        self.data_folder = self.base_dir+"Data_Samples/"
-        self.locs_file = "locs_{}_meters_{}_pairs.npy".format(self.field_length, self.pairs_amount)
-        self.dists_file = "dists_{}_meters_{}_pairs.npy".format(self.field_length, self.pairs_amount)
-        self.weights_file = "weights_{}_meters_{}_pairs.npy".format(self.field_length, self.pairs_amount) # seldomly used
-        self.G_file = "gains_{}_meters_{}_pairs.npy".format(self.field_length, self.pairs_amount)
-        self.G_file_fastFading = "gains_fade_{}_meters_{}_pairs.npy".format(self.field_length, self.pairs_amount)
-        self.FP_alloc_file = "FP_allocs_{}_meters_{}_pairs.npy".format(self.field_length, self.pairs_amount)
-        self.FP_alloc_file_fastFading = "FP_allocs_fade_{}_meters_{}_pairs.npy".format(self.field_length, self.pairs_amount)
-        self.Optimal_alloc_file = "Optimal_allocs_{}_meters_{}_pairs.npy".format(self.field_length, self.pairs_amount)
-        self.file_names = {"locs": self.locs_file,
-            "dists": self.dists_file,
-            "gains": self.G_file,
-            "gains_fade": self.G_file_fastFading,
-            "FP": self.FP_alloc_file,
-            "FP_fade": self.FP_alloc_file_fastFading
-        }
-        # for log file
-        self.log_folder = self.base_dir+"Logs/"
-        self.log_file = "log.txt"
-        # specific channel setting
-        self.shortest_dist = 0.5
-        self.longest_dist = 3
+    def __init__(self):
+        # wireless network settings
+        self.n_links = 50
+        self.field_length = 1000
+        self.shortest_directLink_length = 2
+        self.longest_directLink_length = 65
+        self.shortest_crossLink_length = 5
         self.bandwidth = 5e6
         self.carrier_f = 2.4e9
         self.tx_height = 1.5
@@ -61,13 +36,6 @@ class parameters():
         self.output_noise_power = self.input_noise_power
         self.SNR_gap_dB = 6
         self.SNR_gap = np.power(10, self.SNR_gap_dB/10)
-        self.max_rate_allowed = 15 * self.bandwidth # with 15bps/Hz being the fundamental upperbound
-        # Machine Learning training setting
-        self.amount_per_batch = 1000
-        self.epoches_amount = 100000
-        self.stddev_init = 0.01 # truncated norm initialization standard deviation
-        self.learning_rate = 1e-4 # used with Adam optimizer
         # occupancy grid setting
         self.cell_length = 5
-        self.grid_amount_each_side = np.round(self.field_length/self.cell_length).astype(int)
-        self.grid_amount = np.array([self.grid_amount_each_side, self.grid_amount_each_side])
+        self.n_grids = np.round(self.field_length/self.cell_length).astype(int)

@@ -1,4 +1,4 @@
-# This repository contains the optimization computation using our novel convolutional neural network
+# This script contains the optimization computation using our novel convolutional neural network
 # for the work "Spatial Deep Learning for Wireless Scheduling",
 # available at https://ieeexplore.ieee.org/document/8664604.
 
@@ -61,7 +61,7 @@ def logUtil_scheduling(general_para, layouts, gains_diagonal, gains_nondiagonal)
         with tf.Session() as sess:
             print("Restoring model from: {}".format(neural_net.model_filename))
             saver.restore(sess, neural_net.model_filename)
-            allocs_all_timeSlots = []
+            schedules_all_timeSlots = []
             rates_all_timeSlots = []
             subsets_all_timeSlots = []
             prop_weights_all_timeSlots = []
@@ -70,40 +70,29 @@ def logUtil_scheduling(general_para, layouts, gains_diagonal, gains_nondiagonal)
             for i in range(n_timeSlots):
                 if (((i+1) / n_timeSlots * 100) % 20 == 0):
                     print("{}/{} time slots".format(i, n_timeSlots))
-                allocs_oneslot = sess.run(neural_net.outputs_final,
-                                          feed_dict={placeholders['tx_indices_hash']: test_data['tx_indices_hash'][0],
-                                                     placeholders['rx_indices_hash']: test_data['rx_indices_hash'][0],
-                                                     placeholders['tx_indices_extract']: test_data['tx_indices_ext'][0],
-                                                     placeholders['rx_indices_extract']: test_data['rx_indices_ext'][0],
-                                                     placeholders['pair_tx_convfilter_indices']:
-                                                         test_data['pair_tx_convfilter_indices'][0],
-                                                     placeholders['pair_rx_convfilter_indices']:
-                                                         test_data['pair_rx_convfilter_indices'][0],
-                                                     placeholders['subset_links']: weights_binary})
-                total_time += time.time() - start_time
-                allocs_oneslot = allocs_oneslot * weights_binary  # zero out links not to be scheduled
-                orig_prop_weights.append(weights_orig)
-                subsets.append(weights_binary)
-                allocs.append(allocs_oneslot)
-                rates_oneslot = utils.compute_rates(general_para, allocs_oneslot, gains_diagonal, gains_nondiagonal)
-                rates.append(rates_oneslot)
-                weights_orig = utils.proportional_update_weights(general_para, weights_orig, rates_oneslot)
-                start_time = time.time()
-                weights_binary = utils.binary_importance_weights_approx(general_para, weights_orig)
-                total_time += time.time() - start_time
-    print("{} layouts with {} links over {} timeslots, it took {} seconds.".format(layouts_amount, N, slots_per_layout,
-                                                                                   total_time))
-    allocs = np.transpose(np.array(allocs), (1, 0, 2))
-    assert np.shape(allocs) == (layouts_amount, slots_per_layout, N), "Wrong shape: {}".format(np.shape(allocs))
-    rates = np.transpose(np.array(rates), (1, 0, 2))
-    assert np.shape(rates) == (layouts_amount, slots_per_layout, N), "Wrong shape: {}".format(np.shape(rates))
-    subsets = np.transpose(np.array(subsets), (1, 0, 2))
-    assert np.shape(subsets) == (layouts_amount, slots_per_layout, N), "Wrong shape: {}".format(np.shape(subsets))
-    orig_prop_weights = np.transpose(np.array(orig_prop_weights), (1, 0, 2))
-    assert np.shape(orig_prop_weights) == (layouts_amount, slots_per_layout, N), "Wrong shape: {}".format(
-        np.shape(orig_prop_weights))
-    np.save(general_para.base_dir + "SanityChecks/Weighted_SumRate_Opt/Conv_V10/" + "allocs.npy", allocs)
-    np.save(general_para.base_dir + "SanityChecks/Weighted_SumRate_Opt/Conv_V10/" + "subsets.npy", subsets)
-    np.save(general_para.base_dir + "SanityChecks/Weighted_SumRate_Opt/Conv_V10/" + "prop_weights.npy",
-            orig_prop_weights)
-    return allocs, rates, subsets
+                schedules = sess.run(neural_net.outputs_final,
+                                      feed_dict={neural_net.placeholders['tx_indices_hash']: neural_net_inputs['tx_indices_hash'],
+                                                 neural_net.placeholders['rx_indices_hash']: neural_net_inputs['rx_indices_hash'],
+                                                 neural_net.placeholders['tx_indices_extract']: neural_net_inputs['tx_indices_ext'],
+                                                 neural_net.placeholders['rx_indices_extract']: neural_net_inputs['rx_indices_ext'],
+                                                 neural_net.placeholders['pair_tx_convfilter_indices']: neural_net_inputs['pair_tx_convfilter_indices'],
+                                                 neural_net.placeholders['pair_rx_convfilter_indices']: neural_net_inputs['pair_rx_convfilter_indices'],
+                                                 neural_net.placeholders['subset_links']: prop_weights_binary})
+                schedules = schedules * prop_weights_binary  # zero out links not to be scheduled
+                prop_weights_all_timeSlots.append(prop_weights)
+                subsets_all_timeSlots.append(prop_weights_binary)
+                schedules_all_timeSlots.append(schedules)
+                rates = helper_functions.compute_rates(general_para, schedules, gains_diagonal, gains_nondiagonal)
+                rates_all_timeSlots.append(rates)
+                prop_weights = helper_functions.proportional_update_weights(general_para, prop_weights, rates)
+                prop_weights_binary = helper_functions.binary_importance_weights_approx(general_para, prop_weights)
+    schedules_all_timeSlots = np.transpose(np.array(schedules_all_timeSlots), (1, 0, 2))
+    assert np.shape(schedules_all_timeSlots) == (n_layouts, n_timeSlots, N), "Wrong shape: {}".format(np.shape(schedules_all_timeSlots))
+    rates_all_timeSlots = np.transpose(np.array(rates_all_timeSlots), (1, 0, 2))
+    assert np.shape(rates_all_timeSlots) == (n_layouts, n_timeSlots, N), "Wrong shape: {}".format(np.shape(rates_all_timeSlots))
+    subsets_all_timeSlots = np.transpose(np.array(subsets_all_timeSlots), (1, 0, 2))
+    assert np.shape(subsets_all_timeSlots) == (n_layouts, n_timeSlots, N), "Wrong shape: {}".format(np.shape(subsets_all_timeSlots))
+    prop_weights_all_timeSlots = np.transpose(np.array(prop_weights_all_timeSlots), (1, 0, 2))
+    assert np.shape(prop_weights_all_timeSlots) == (n_layouts, n_timeSlots, N), "Wrong shape: {}".format(np.shape(prop_weights_all_timeSlots))
+
+    return schedules_all_timeSlots, rates_all_timeSlots, subsets_all_timeSlots
