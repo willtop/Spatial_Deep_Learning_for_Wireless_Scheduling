@@ -42,7 +42,7 @@ def Max_Weight_Scheduling(general_para, proportional_fairness_weights):
     assert np.shape(proportional_fairness_weights)==(n_layouts, N)
     allocs = np.zeros([n_layouts, N])
     max_weight_links = np.argmax(proportional_fairness_weights, axis=1)
-    allocs[np.np.arange(n_layouts), max_weight_links] = 1
+    allocs[np.arange(n_layouts), max_weight_links] = 1
     return allocs
 
 # greedy scheduling with weighted version: O(N^2) implementation

@@ -20,7 +20,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import sys
 sys.path.append("../Neural_Network_Model/")
-import Convolutional_Neural_Network_Model
+import Deep_Learning_Scheduling
 sys.path.append("../Utilities/")
 import general_parameters
 import benchmarks
@@ -30,28 +30,6 @@ import helper_functions
 INCLUDE_FAST_FADING = False
 n_timeSlots = 500
 
-def update_proportional_fairness_weights(weights, rates):
-    alpha = 0.95
-    return 1 / (alpha / weights + (1 - alpha) * rates)
-
-# Find binary approximation of importance weights parallelly over multiple layouts
-def binarize_proportional_fairness_weights(general_para, weights):
-    N = general_para.n_links
-    n_layouts = np.shape(weights)[0]
-    assert np.shape(weights) == (n_layouts, N)
-    sorted_indices = np.argsort(weights, axis=1)
-    weights_normalized = weights / np.linalg.norm(weights,axis=1,keepdims=True) # normalize to l2 norm 1
-    # initialize variables
-    binary_weights = np.zeros([n_layouts, N])
-    max_dot_product = np.zeros(n_layouts)
-    # use greedy to activate one at a time
-    for i in range(N-1, -1, -1):
-        binary_weights[np.arange(n_layouts), sorted_indices[:,i]] = 1
-        binary_weights_normalized = binary_weights/np.linalg.norm(binary_weights,axis=1,keepdims=True)
-        current_dot_product = np.einsum('ij,ij->i', weights_normalized, binary_weights_normalized)
-        binary_weights[np.arange(n_layouts), sorted_indices[:,i]] = (current_dot_product >= max_dot_product).astype(int)
-        max_dot_product = np.maximum(max_dot_product, current_dot_product)
-    return binary_weights
 
 if(__name__ =='__main__'):
     general_para = general_parameters.parameters()
@@ -87,7 +65,7 @@ if(__name__ =='__main__'):
         rates = helper_functions.compute_rates(general_para, allocs, directLink_channel_losses, crossLink_channel_losses)
         allocs_all_timeSlots.append(allocs)
         rates_all_timeSlots.append(rates)
-        proportional_fairness_weights = update_proportional_fairness_weights(proportional_fairness_weights, rates)
+        proportional_fairness_weights = helper_functions.update_proportional_fairness_weights(proportional_fairness_weights, rates)
     allocs_all_timeSlots = np.transpose(np.array(allocs_all_timeSlots), (1, 0, 2))
     rates_all_timeSlots = np.transpose(np.array(rates_all_timeSlots), (1, 0, 2))
     assert np.shape(allocs_all_timeSlots) == np.shape(rates_all_timeSlots) == (n_layouts, n_timeSlots, N)
@@ -105,7 +83,7 @@ if(__name__ =='__main__'):
         rates = helper_functions.compute_rates(general_para, allocs, directLink_channel_losses, crossLink_channel_losses)
         allocs_all_timeSlots.append(allocs)
         rates_all_timeSlots.append(rates)
-        proportional_fairness_weights = update_proportional_fairness_weights(proportional_fairness_weights, rates)
+        proportional_fairness_weights = helper_functions.update_proportional_fairness_weights(proportional_fairness_weights, rates)
     allocs_all_timeSlots = np.transpose(np.array(allocs_all_timeSlots), (1, 0, 2))
     rates_all_timeSlots = np.transpose(np.array(rates_all_timeSlots), (1, 0, 2))
     assert np.shape(allocs_all_timeSlots) == np.shape(rates_all_timeSlots) == (n_layouts, n_timeSlots, N)
@@ -121,13 +99,13 @@ if(__name__ =='__main__'):
     for i in range(n_timeSlots):
         if ((i + 1) * 100 / n_timeSlots % 25 == 0):
             print("At {}/{} time slots...".format(i + 1, n_timeSlots))
-        allocs = benchmarks.FP(general_para, channel_losses, proportional_fairness_weights_binary, scheduling_output=True)
+        allocs = benchmarks.FP(general_para, channel_losses, proportional_fairness_weights_binary)
         rates = helper_functions.compute_rates(general_para, allocs, directLink_channel_losses, crossLink_channel_losses)
         allocs_all_timeSlots.append(allocs)
         rates_all_timeSlots.append(rates)
         superSets_all_timeSlots.append(proportional_fairness_weights_binary)
-        proportional_fairness_weights = update_proportional_fairness_weights(proportional_fairness_weights, rates)
-        proportional_fairness_weights_binary = binarize_proportional_fairness_weights(general_para, proportional_fairness_weights)
+        proportional_fairness_weights = helper_functions.update_proportional_fairness_weights(proportional_fairness_weights, rates)
+        proportional_fairness_weights_binary = helper_functions.binarize_proportional_fairness_weights(general_para, proportional_fairness_weights)
     allocs_all_timeSlots = np.transpose(np.array(allocs_all_timeSlots), (1, 0, 2))
     rates_all_timeSlots = np.transpose(np.array(rates_all_timeSlots), (1, 0, 2))
     superSets_all_timeSlots = np.transpose(np.array(superSets_all_timeSlots), (1, 0, 2))
@@ -136,7 +114,11 @@ if(__name__ =='__main__'):
     rates_all_methods["FP Binary Re-Weighting"] = rates_all_timeSlots
     superSets_all_methods["FP Binary Re-Weighting"] = superSets_all_timeSlots
 
-    print("Weighted Greedy Log Utility Optimization")
+    print("Deep Learning Log Utility Optimization...")
+    allocs_all_methods["Deep Learning"], rates_all_methods["Deep Learning"], superSets_all_methods["Deep Learning"] =\
+        Deep_Learning_Scheduling.logUtility_scheduling(general_para, layouts, directLink_channel_losses, crossLink_channel_losses, n_timeSlots)
+
+    print("Weighted Greedy Log Utility Optimization...")
     n_layouts, N = np.shape(directLink_channel_losses)
     allocs_all_timeSlots = []
     rates_all_timeSlots = []
@@ -144,11 +126,11 @@ if(__name__ =='__main__'):
     for i in range(n_timeSlots):
         if ((i + 1) * 100 / n_timeSlots % 25 == 0):
             print("At {}/{} time slots...".format(i + 1, n_timeSlots))
-        allocs = benchmarks.greedy_scheduling(general_para, directLink_channel_losses, crossLink_channel_losses, proportional_fairness_weights)
+        allocs = benchmarks.Greedy_Scheduling(general_para, directLink_channel_losses, crossLink_channel_losses, proportional_fairness_weights)
         rates = helper_functions.compute_rates(general_para, allocs, directLink_channel_losses, crossLink_channel_losses)
         allocs_all_timeSlots.append(allocs)
         rates_all_timeSlots.append(rates)
-        proportional_fairness_weights = update_proportional_fairness_weights(general_para, rates, proportional_fairness_weights)
+        proportional_fairness_weights = helper_functions.update_proportional_fairness_weights(proportional_fairness_weights, rates)
     allocs_all_timeSlots = np.transpose(np.array(allocs_all_timeSlots), (1, 0, 2))
     rates_all_timeSlots = np.transpose(np.array(rates_all_timeSlots), (1, 0, 2))
     assert np.shape(allocs_all_timeSlots) == np.shape(rates_all_timeSlots) == (n_layouts, n_timeSlots, N)
@@ -161,11 +143,11 @@ if(__name__ =='__main__'):
     rates_all_timeSlots = []
     proportional_fairness_weights = np.ones([n_layouts, N])
     for i in range(n_timeSlots):
-        allocs = benchmarks.Max_Weight_scheduling(general_para, proportional_fairness_weights)
+        allocs = benchmarks.Max_Weight_Scheduling(general_para, proportional_fairness_weights)
         rates = helper_functions.compute_rates(general_para, allocs, directLink_channel_losses, crossLink_channel_losses)
         allocs_all_timeSlots.append(allocs)
         rates_all_timeSlots.append(rates)
-        proportional_fairness_weights = update_proportional_fairness_weights(general_para, rates, proportional_fairness_weights)
+        proportional_fairness_weights = helper_functions.update_proportional_fairness_weights(proportional_fairness_weights, rates)
     allocs_all_timeSlots = np.transpose(np.array(allocs_all_timeSlots), (1, 0, 2))
     rates_all_timeSlots = np.transpose(np.array(rates_all_timeSlots), (1, 0, 2))
     assert np.shape(allocs_all_timeSlots) == np.shape(rates_all_timeSlots) == (n_layouts, n_timeSlots, N)
@@ -225,7 +207,7 @@ if(__name__ =='__main__'):
     line_styles = dict()
     line_styles["Deep Learning"] = 'r-'
     line_styles["FP"] = 'g-.'
-    line_styles["FP Not Knowing Small Scale Fading"] = "b:"
+    line_styles["FP Not Knowing Fading"] = "b:"
     line_styles["FP Binary Re-Weighting"] = 'm-.'
     line_styles["Weighted Greedy"] = 'k--'
     line_styles["Max Weight Only"] = 'c-.'

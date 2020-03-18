@@ -90,6 +90,29 @@ def add_fast_fading(channel_losses):
     channel_losses = channel_losses * fastfadings
     return channel_losses
 
+def update_proportional_fairness_weights(weights, rates):
+    alpha = 0.95
+    return 1 / (alpha / weights + (1 - alpha) * rates)
+
+# Find binary approximation of importance weights parallelly over multiple layouts
+def binarize_proportional_fairness_weights(general_para, weights):
+    N = general_para.n_links
+    n_layouts = np.shape(weights)[0]
+    assert np.shape(weights) == (n_layouts, N)
+    sorted_indices = np.argsort(weights, axis=1)
+    weights_normalized = weights / np.linalg.norm(weights,axis=1,keepdims=True) # normalize to l2 norm 1
+    # initialize variables
+    binary_weights = np.zeros([n_layouts, N])
+    max_dot_product = np.zeros(n_layouts)
+    # use greedy to activate one at a time
+    for i in range(N-1, -1, -1):
+        binary_weights[np.arange(n_layouts), sorted_indices[:,i]] = 1
+        binary_weights_normalized = binary_weights/np.linalg.norm(binary_weights,axis=1,keepdims=True)
+        current_dot_product = np.einsum('ij,ij->i', weights_normalized, binary_weights_normalized)
+        binary_weights[np.arange(n_layouts), sorted_indices[:,i]] = (current_dot_product >= max_dot_product).astype(int)
+        max_dot_product = np.maximum(max_dot_product, current_dot_product)
+    return binary_weights
+
 def get_pair_indices(general_para, locations):
     N = general_para.n_links
     assert np.shape(locations)==(N,2), "[get_pair_indices] input locations argument with wrong shape: {}".format(np.shape(locations))

@@ -51,13 +51,12 @@ def sumRate_scheduling(general_para, layouts):
 
 
 # Scheduling for Log Utility Optimization
-def logUtil_scheduling(general_para, layouts, gains_diagonal, gains_nondiagonal):
+def logUtility_scheduling(general_para, layouts, gains_diagonal, gains_nondiagonal, n_timeSlots):
     N = general_para.n_links
     n_layouts = np.shape(layouts)[0]
     neural_net = Convolutional_Neural_Network_Model.Conv_Network(general_para, n_layouts)
     neural_net.build_network()
     neural_net_inputs = helper_functions.process_layouts_inputs(general_para, layouts)
-    n_timeSlots = general_para.n_timeSlots
 
     with neural_net.TFgraph.as_default():
         saver = tf.train.Saver()
@@ -66,10 +65,9 @@ def logUtil_scheduling(general_para, layouts, gains_diagonal, gains_nondiagonal)
             print("Restored model from: {}!".format(neural_net.model_filename))
             schedules_all_timeSlots = []
             rates_all_timeSlots = []
-            subsets_all_timeSlots = []
-            prop_weights_all_timeSlots = []
-            prop_weights = np.ones([n_layouts, N])
-            prop_weights_binary = np.ones([n_layouts, N])
+            supersets_all_timeSlots = []
+            proportional_fairness_weights = np.ones([n_layouts, N])
+            proportional_fairness_weights_binary = np.ones([n_layouts, N])
             for i in range(n_timeSlots):
                 if (((i+1) / n_timeSlots * 100) % 20 == 0):
                     print("{}/{} time slots".format(i, n_timeSlots))
@@ -80,25 +78,20 @@ def logUtil_scheduling(general_para, layouts, gains_diagonal, gains_nondiagonal)
                                                  neural_net.placeholders['rx_indices_extract']: neural_net_inputs['rx_indices_ext'],
                                                  neural_net.placeholders['pair_tx_convfilter_indices']: neural_net_inputs['pair_tx_convfilter_indices'],
                                                  neural_net.placeholders['pair_rx_convfilter_indices']: neural_net_inputs['pair_rx_convfilter_indices'],
-                                                 neural_net.placeholders['subset_links']: prop_weights_binary})
-                schedules = schedules * prop_weights_binary  # zero out links not to be scheduled
-                prop_weights_all_timeSlots.append(prop_weights)
-                subsets_all_timeSlots.append(prop_weights_binary)
+                                                 neural_net.placeholders['subset_links']: proportional_fairness_weights_binary})
+                schedules = schedules * proportional_fairness_weights_binary  # zero out links not to be scheduled
+                supersets_all_timeSlots.append(proportional_fairness_weights_binary)
                 schedules_all_timeSlots.append(schedules)
                 rates = helper_functions.compute_rates(general_para, schedules, gains_diagonal, gains_nondiagonal)
                 rates_all_timeSlots.append(rates)
-                prop_weights = helper_functions.proportional_update_weights(general_para, prop_weights, rates)
-                prop_weights_binary = helper_functions.binary_importance_weights_approx(general_para, prop_weights)
+                proportional_fairness_weights = helper_functions.update_proportional_fairness_weights(proportional_fairness_weights, rates)
+                proportional_fairness_weights_binary = helper_functions.binarize_proportional_fairness_weights(general_para, proportional_fairness_weights)
     schedules_all_timeSlots = np.transpose(np.array(schedules_all_timeSlots), (1, 0, 2))
-    assert np.shape(schedules_all_timeSlots) == (n_layouts, n_timeSlots, N), "Wrong shape: {}".format(np.shape(schedules_all_timeSlots))
     rates_all_timeSlots = np.transpose(np.array(rates_all_timeSlots), (1, 0, 2))
-    assert np.shape(rates_all_timeSlots) == (n_layouts, n_timeSlots, N), "Wrong shape: {}".format(np.shape(rates_all_timeSlots))
-    subsets_all_timeSlots = np.transpose(np.array(subsets_all_timeSlots), (1, 0, 2))
-    assert np.shape(subsets_all_timeSlots) == (n_layouts, n_timeSlots, N), "Wrong shape: {}".format(np.shape(subsets_all_timeSlots))
-    prop_weights_all_timeSlots = np.transpose(np.array(prop_weights_all_timeSlots), (1, 0, 2))
-    assert np.shape(prop_weights_all_timeSlots) == (n_layouts, n_timeSlots, N), "Wrong shape: {}".format(np.shape(prop_weights_all_timeSlots))
+    supersets_all_timeSlots = np.transpose(np.array(supersets_all_timeSlots), (1, 0, 2))
+    assert np.shape(schedules_all_timeSlots) == np.shape(rates_all_timeSlots) == np.shape(supersets_all_timeSlots) == (n_layouts, n_timeSlots, N)
 
-    return schedules_all_timeSlots, rates_all_timeSlots, subsets_all_timeSlots
+    return schedules_all_timeSlots, rates_all_timeSlots, supersets_all_timeSlots
 
 
 # Function for interpretability: start a standalone tensorflow session for convolutional filter visualization

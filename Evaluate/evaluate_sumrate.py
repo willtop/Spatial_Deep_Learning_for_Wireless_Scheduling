@@ -25,7 +25,7 @@ import general_parameters
 import helper_functions
 import benchmarks
 sys.path.append("../Neural_Network_Model/")
-import Deep_Learning_Scheduling_Computation
+import Deep_Learning_Scheduling
 
 INCLUDE_FADING = False
 
@@ -55,7 +55,7 @@ if(__name__ =='__main__'):
 
     allocs_all_methods["FP Not Knowing Fading"] = benchmarks.FP(general_para, path_losses, np.ones([n_layouts, N]))
 
-    allocs_all_methods["Deep Learning"] = Deep_Learning_Scheduling_Computation.sumRate_scheduling(general_para, layouts)
+    allocs_all_methods["Deep Learning"] = Deep_Learning_Scheduling.sumRate_scheduling(general_para, layouts)
 
     allocs_all_methods["Greedy"] = benchmarks.Greedy_Scheduling(general_para, directLink_channel_losses, crossLink_channel_losses, np.ones(n_layouts, N))
 
