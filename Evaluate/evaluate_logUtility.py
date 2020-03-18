@@ -94,6 +94,24 @@ if(__name__ =='__main__'):
     allocs_all_methods["FP"] = allocs_all_timeSlots
     rates_all_methods["FP"] = rates_all_timeSlots
 
+    print("FP Not Knowing Fading Log Utility Optimization...")
+    allocs_all_timeSlots = []
+    rates_all_timeSlots = []
+    proportional_fairness_weights = np.ones([n_layouts, N])
+    for i in range(n_timeSlots):
+        if ((i + 1) * 100 / n_timeSlots % 25 == 0):
+            print("At {}/{} time slots...".format(i + 1, n_timeSlots))
+        allocs = benchmarks.FP(general_para, path_losses, proportional_fairness_weights)
+        rates = helper_functions.compute_rates(general_para, allocs, directLink_channel_losses, crossLink_channel_losses)
+        allocs_all_timeSlots.append(allocs)
+        rates_all_timeSlots.append(rates)
+        proportional_fairness_weights = update_proportional_fairness_weights(proportional_fairness_weights, rates)
+    allocs_all_timeSlots = np.transpose(np.array(allocs_all_timeSlots), (1, 0, 2))
+    rates_all_timeSlots = np.transpose(np.array(rates_all_timeSlots), (1, 0, 2))
+    assert np.shape(allocs_all_timeSlots) == np.shape(rates_all_timeSlots) == (n_layouts, n_timeSlots, N)
+    allocs_all_methods["FP Not Knowing Fading"] = allocs_all_timeSlots
+    rates_all_methods["FP Not Knowing Fading"] = rates_all_timeSlots
+
     print("FP with Binary Re-weighting Log Utility Optimization...")
     allocs_all_timeSlots = []
     rates_all_timeSlots = []
@@ -124,10 +142,9 @@ if(__name__ =='__main__'):
     rates_all_timeSlots = []
     proportional_fairness_weights = np.ones([n_layouts, N])
     for i in range(n_timeSlots):
-        if ((i + 1) * 100 / n_timeSlots % 50 == 0):
-            print("[Greedy Log Util] At {}/{} time slots...".format(i + 1, n_timeSlots))
-        allocs = benchmarks.greedy_scheduling(general_para, directLink_channel_losses, crossLink_channel_losses,
-                                              proportional_fairness_weights)
+        if ((i + 1) * 100 / n_timeSlots % 25 == 0):
+            print("At {}/{} time slots...".format(i + 1, n_timeSlots))
+        allocs = benchmarks.greedy_scheduling(general_para, directLink_channel_losses, crossLink_channel_losses, proportional_fairness_weights)
         rates = helper_functions.compute_rates(general_para, allocs, directLink_channel_losses, crossLink_channel_losses)
         allocs_all_timeSlots.append(allocs)
         rates_all_timeSlots.append(rates)
@@ -135,6 +152,25 @@ if(__name__ =='__main__'):
     allocs_all_timeSlots = np.transpose(np.array(allocs_all_timeSlots), (1, 0, 2))
     rates_all_timeSlots = np.transpose(np.array(rates_all_timeSlots), (1, 0, 2))
     assert np.shape(allocs_all_timeSlots) == np.shape(rates_all_timeSlots) == (n_layouts, n_timeSlots, N)
+    allocs_all_methods["Weighted Greedy"] = allocs_all_timeSlots
+    rates_all_methods["Weighted Greedy"] = rates_all_timeSlots
+
+    print("Max Weight Link Only Log Utility Optimization")
+    n_layouts, N = np.shape(directLink_channel_losses)
+    allocs_all_timeSlots = []
+    rates_all_timeSlots = []
+    proportional_fairness_weights = np.ones([n_layouts, N])
+    for i in range(n_timeSlots):
+        allocs = benchmarks.Max_Weight_scheduling(general_para, proportional_fairness_weights)
+        rates = helper_functions.compute_rates(general_para, allocs, directLink_channel_losses, crossLink_channel_losses)
+        allocs_all_timeSlots.append(allocs)
+        rates_all_timeSlots.append(rates)
+        proportional_fairness_weights = update_proportional_fairness_weights(general_para, rates, proportional_fairness_weights)
+    allocs_all_timeSlots = np.transpose(np.array(allocs_all_timeSlots), (1, 0, 2))
+    rates_all_timeSlots = np.transpose(np.array(rates_all_timeSlots), (1, 0, 2))
+    assert np.shape(allocs_all_timeSlots) == np.shape(rates_all_timeSlots) == (n_layouts, n_timeSlots, N)
+    allocs_all_methods["Max Weight"] = allocs_all_timeSlots
+    rates_all_methods["Max Weight"] = rates_all_timeSlots
 
     print("All Active Log Utility Optimization")
     n_layouts, N = np.shape(directLink_channel_losses)
@@ -144,8 +180,9 @@ if(__name__ =='__main__'):
     rates_all_timeSlots = np.tile(np.expand_dims(rates, axis=0), (n_timeSlots, 1, 1))
     allocs_all_timeSlots = np.transpose(np.array(allocs_all_timeSlots), (1, 0, 2))
     rates_all_timeSlots = np.transpose(np.array(rates_all_timeSlots), (1, 0, 2))
-    assert np.shape(allocs_all_timeSlots) == np.shape(rates_all_timeSlots) == (
-    n_layouts, n_timeSlots, N)
+    assert np.shape(allocs_all_timeSlots) == np.shape(rates_all_timeSlots) == (n_layouts, n_timeSlots, N)
+    allocs_all_methods["All Active"] = allocs_all_timeSlots
+    rates_all_methods["All Active"] = rates_all_timeSlots
 
     print("Random Scheduling Log Utility Optimization")
     n_layouts, N = np.shape(directLink_channel_losses)
@@ -157,7 +194,8 @@ if(__name__ =='__main__'):
     allocs_all_timeSlots = np.transpose(np.array(allocs_all_timeSlots), (1, 0, 2))
     rates_all_timeSlots = np.transpose(np.array(rates_all_timeSlots), (1, 0, 2))
     assert np.shape(allocs_all_timeSlots) == np.shape(rates_all_timeSlots) == (n_layouts, n_timeSlots, N)
-
+    allocs_all_methods["Random"] = allocs_all_timeSlots
+    rates_all_methods["Random"] = rates_all_timeSlots
 
     print("<<<<<<<<<<<<<<<<EVALUATION>>>>>>>>>>>>>>>>>")
     print("[Percentages of Scheduled Links Over All Time Slots] ")
@@ -165,102 +203,63 @@ if(__name__ =='__main__'):
         print("[{}]: {}%; ".format(method_key, round(np.mean(allocs_all_methods[method_key]) * 100, 2)), end="")
     print("\n")
 
-    # Sum log mean rates evaluation
-    print("----------------------------------------------------------------")
-    print("[Sum Log Mean Rates (Mean over {} layouts)]:".format(n_layouts))
-    all_sum_log_mean_rates = dict()
-    all_link_mean_rates = dict()
+    print("[Sum Log Mean Rates in Mbps (Avg over {} layouts)]:".format(n_layouts))
+    link_mean_rates_all_methods = {}
     global_max_mean_rate = 0 # for plotting upperbound
     for method_key in allocs_all_methods.keys():
-        link_mean_rates = np.mean(rates_all_methods[method_key], axis=1); assert np.shape(link_mean_rates) == (test_layouts, N), "Wrong shape: {}".format(np.shape(link_mean_rates))
-        all_link_mean_rates[method_key] = link_mean_rates.flatten() # (test_layouts X N, )
+        link_mean_rates = np.mean(rates_all_methods[method_key], axis=1)
+        assert np.shape(link_mean_rates) == (n_layouts, N), "Wrong shape: {}".format(np.shape(link_mean_rates))
+        link_mean_rates_all_methods[method_key] = link_mean_rates.flatten() # (test_layouts X N, )
         global_max_mean_rate = max(global_max_mean_rate, np.max(link_mean_rates))
-        all_sum_log_mean_rates[method_key] = np.mean(np.sum(np.log(link_mean_rates/1e6 + 1e-5),axis=1))
-    for method_key in allocs_all_methods.keys():
-        print("[{}]: {}; ".format(method_key, all_sum_log_mean_rates[method_key]), end="")
+        log_utilities = np.mean(np.sum(np.log(link_mean_rates/1e6 + 1e-9),axis=1))
+        print("[{}]: {}; ".format(method_key, log_utilities, end=""))
     print("\n")
 
-    print("[Bottom 5-Percentile Mean Rate (Aggregate over all layouts)]:")
+    print("[Bottom 5-Percentile Mean Rate over all links among all layouts]:")
     for method_key in allocs_all_methods.keys():
-        meanR_5pert = np.percentile((all_link_mean_rates[method_key]).flatten(), 5)
-        print("[{}]: {}; ".format(method_key, meanR_5pert), end="")
+        mean_rate_5pert = np.percentile((link_mean_rates_all_methods[method_key]).flatten(), 5)
+        print("[{}]: {}; ".format(method_key, mean_rate_5pert), end="")
     print("\n")
 
-    # Produce the CDF plot for mean rates achieved by single links
-    if(formal_CDF_legend_option):
-        line_styles = dict()
-        line_styles["Deep Learning"] = 'r-'
-        line_styles["FP"] = 'g:'
-        line_styles["Weighted Greedy"] = 'm-.'
-        line_styles["Max Weight Only"] = 'b--'
-        line_styles["All Active"] = 'c-.'
-        line_styles["Random"] = 'y--'
-    fig = plt.figure(); ax = fig.gca()
+    # Produce the CDF plot for each link's mean rate aggregated
+    line_styles = dict()
+    line_styles["Deep Learning"] = 'r-'
+    line_styles["FP"] = 'g-.'
+    line_styles["FP Not Knowing Small Scale Fading"] = "b:"
+    line_styles["FP Binary Re-Weighting"] = 'm-.'
+    line_styles["Weighted Greedy"] = 'k--'
+    line_styles["Max Weight Only"] = 'c-.'
+    line_styles["All Active"] = 'y-'
+    line_styles["Random"] = 'm--'
+    fig = plt.figure()
+    ax = fig.gca()
     plt.xlabel("Mean Rate for each link (Mbps)")
     plt.ylabel("Cumulative Distribution Function")
     plt.grid(linestyle="dotted")
     ax.set_xlim(left=0, right=0.45*global_max_mean_rate/1e6)
     ax.set_ylim(ymin=0)
-    if(formal_CDF_legend_option):
-        allocs_keys_ordered = ["Deep Learning", "FP", "Weighted Greedy", "Max Weight Only", "All Active", "Random"]
-        for method_key in allocs_keys_ordered:
-            if(method_key not in all_link_mean_rates.keys()):
-                print("[{}] Allocation not computed! Skipping...".format(method_key))
-                continue
-            plt.plot(np.sort(all_link_mean_rates[method_key])/1e6, np.arange(1, test_layouts*N + 1) / (test_layouts*N), line_styles[method_key], label=method_key)
-    else:
-        for method_key in all_link_mean_rates.keys():
-            plt.plot(np.sort(all_link_mean_rates[method_key])/1e6, np.arange(1, test_layouts*N + 1) / (test_layouts*N), label=method_key)
+    for method_key in allocs_all_methods.keys():
+        plt.plot(np.sort(link_mean_rates_all_methods[method_key])/1e6, np.arange(1, n_layouts*N + 1) / (n_layouts*N), line_styles[method_key], label=method_key)
     plt.legend()
     plt.show()
-    print("----------------------------------------------------------------")
 
-    # Plot scheduling and subsets sent as scheduling candidates
-    print("Plotting subset selection for each scheduling")
-    v_layout = np.random.randint(low=0, high=test_layouts)
-    v_layout = 5
-    # Form a plot for every method having binary weights subset links scheduling
-    for method_key in all_subsets.keys():
-        print("[subsets_select_plotting] Plotting {} allocations...".format(method_key))
-        v_subsets = all_subsets[method_key][v_layout]
-        v_allocs = allocs_all_methods[method_key][v_layout]
-        v_locations = test_locations[v_layout]
-        fig = plt.figure(); plt.title("{} for layout #{}".format(method_key, v_layout))
-        ax = fig.gca(); ax.set_xticklabels([]); ax.set_yticklabels([])
-        for i in range(24):  # visualize first several time steps for each layout
-            ax = fig.add_subplot(4, 6, i + 1); ax.set_xticklabels([]); ax.set_yticklabels([])
-            tx_locs = v_locations[:, 0:2]; rx_locs = v_locations[:, 2:4]
-            plt.scatter(tx_locs[:, 0], tx_locs[:, 1], c='r', s=2); plt.scatter(rx_locs[:, 0], rx_locs[:, 1], c='b', s=2)
-            for j in range(N):  # plot both subsets and activated links (assume scheduling outputs)
-                if v_subsets[i][j] == 1:
-                    plt.plot([tx_locs[j, 0], rx_locs[j, 0]], [tx_locs[j, 1], rx_locs[j, 1]], 'b', linewidth=2.2, alpha=0.25)
-                if v_allocs[i][j] == 1:
-                    plt.plot([tx_locs[j, 0], rx_locs[j, 0]], [tx_locs[j, 1], rx_locs[j, 1]], 'r', linewidth=0.8)
-        plt.subplots_adjust(wspace=0, hspace=0)
-        plt.show()
-
-    # Sequential Plotting
-    # plot for one randomly selected layout over all methods
-    print("Plotting sequential plotting of schedulings...")
-    for method_key in allocs_all_methods.keys():
-        if (method_key in ["All Active", "Random"]):
-            continue  # Don't plot for these trivial allocations
-        print("[sequential_timeslots_plotting] Plotting {} allocations...".format(method_key))
-        v_allocs = allocs_all_methods[method_key][v_layout]
-        v_locations = test_locations[v_layout]
-        fig = plt.figure(); plt.title("{} for layout #{}".format(method_key, v_layout))
-        ax = fig.gca(); ax.set_xticklabels([]); ax.set_yticklabels([])
-        for i in range(24): # visualize first several time steps for each layout
-            ax = fig.add_subplot(4, 6, i+1); ax.set_xticklabels([]); ax.set_yticklabels([])
-            v_allocs_oneslot = v_allocs[i]
-            tx_locs = v_locations[:, 0:2];  rx_locs = v_locations[:, 2:4]
-            plt.scatter(tx_locs[:, 0], tx_locs[:, 1], c='r', s=3); plt.scatter(rx_locs[:, 0], rx_locs[:, 1], c='b', s=3)
-            for j in range(N):  # plot all activated links
-                line_color = 1-v_allocs_oneslot[j]
-                if line_color==0:
-                    line_color = 0.0 # deal with 0 formatting error problem
-                plt.plot([tx_locs[j, 0], rx_locs[j, 0]], [tx_locs[j, 1], rx_locs[j, 1]], '{}'.format(line_color))# have to do 1 minus since the smaller the number the darker it gets
-        plt.subplots_adjust(wspace=0, hspace=0)
-        plt.show()
+    print("Plotting sequential time slots scheduling, and where applicable, supersets...")
+    layout_indices = np.random.randint(low=0, high=n_layouts-1, size=3)
+    for layout_index in layout_indices:
+        for method_key in allocs_all_methods.keys():
+            if (method_key in ["All Active", "Random", "Max Weight Only"]):
+                continue  # Don't plot for these trivial allocations
+            plt.title("{} Sequential Scheduling on {}th Layout".format(method_key, layout_index))
+            for i in range(1, 16):  # visualize first several time steps for each layout
+                ax = fig.add_subplot(3, 5, i)
+                ax.set_title("{}th TimeSlot".format(i))
+                ax.set_xticklabels([])
+                ax.set_yticklabels([])
+                helper_functions.visualize_layout(ax, layouts[layout_index])
+                if method_key in superSets_all_methods.keys():
+                    helper_functions.visualize_superset_on_layout(ax, layouts[layout_index], superSets_all_methods[method_key][layout_index])
+                helper_functions.visualize_schedules_on_layout(ax, layouts[layout_index], allocs_all_methods[method_key][layout_index])
+            plt.subplots_adjust(wspace=0, hspace=0)
+            plt.show()
 
     print("Script Completed Successfully!")

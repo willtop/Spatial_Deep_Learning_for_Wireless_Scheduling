@@ -141,16 +141,34 @@ def process_layouts_inputs(general_para, layouts):
     data_dict['rx_indices_ext'], data_dict['rx_indices_hash'] = append_indices_array(general_para, data_dict['rx_indices'])
     return data_dict
 
-def visualize_schedules_on_layout(ax, layout, schedules, plot_title):
+def visualize_layout(ax, layout):
+    N = np.shape(layout)[0]
+    assert np.shape(layout) == (N, 4)
+    tx_locs = layout[:, 0:2]
+    rx_locs = layout[:, 2:4]
+    ax.scatter(tx_locs[:, 0], tx_locs[:, 1], c='r', marker='x', label='Tx', s=9)
+    ax.scatter(rx_locs[:, 0], rx_locs[:, 1], c='b', label='Rx', s=9)
+    ax.legend()
+    return
+
+def visualize_superSet_on_layout(ax, layout, superset):
+    N = np.shape(layout)[0]
+    assert np.shape(layout) == (N, 4)
+    assert np.size(superset) == N
+    tx_locs = layout[:, 0:2]
+    rx_locs = layout[:, 2:4]
+    for i in range(N):  # label all links within the selected superset
+        if(superset[i]!=0):
+            ax.plot([tx_locs[i, 0], rx_locs[i, 0]], [tx_locs[i, 1], rx_locs[i, 1]], c='r', linewidth=3.5, alpha=0.3)
+    return
+
+def visualize_schedules_on_layout(ax, layout, schedules):
     N = np.shape(layout)[0]
     assert np.shape(layout) == (N, 4)
     assert np.size(schedules) == N
     tx_locs = layout[:, 0:2]
     rx_locs = layout[:, 2:4]
-    ax.set_title(plot_title)
-    ax.scatter(tx_locs[:, 0], tx_locs[:, 1], c='r', marker='x', label='Tx', s=9)
-    ax.scatter(rx_locs[:, 0], rx_locs[:, 1], c='b', label='Rx', s=9)
     for i in range(N):  # plot all activated links
-        ax.plot([tx_locs[i, 0], rx_locs[i, 0]], [tx_locs[i, 1], rx_locs[i, 1]], "{}".format(1 - schedules[i].astype(float)))
-    ax.legend()
+        if(schedules[i] != 0):
+            ax.plot([tx_locs[i, 0], rx_locs[i, 0]], [tx_locs[i, 1], rx_locs[i, 1]])
     return
