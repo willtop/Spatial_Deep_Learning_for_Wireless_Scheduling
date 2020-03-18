@@ -17,13 +17,6 @@
 import random
 import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
-import time
-import sys
-sys.path.append("../Tools/")
-import general_parameters
-import model_parameters
-import utils
 import os
 
 
@@ -37,6 +30,7 @@ class Conv_Network():
         self.learning_rate = 1e-4
         self.n_grids = self.parameters.n_grids
         self.filter_size = 63
+        self.n_grids = self.parameters.n_grids
         self.n_feedback_steps = 20
         self.placeholders = dict()
         self.TFgraph = tf.Graph()
@@ -59,7 +53,7 @@ class Conv_Network():
         self.placeholders['pair_rx_convfilter_indices'] = pair_rx_convfilter_indices
         self.placeholders['schedule_label'] = schedule_label
         # For log utility optimization
-        self.placeholders['subset_links'] = tf.placeholder_with_default(input=tf.ones([self.batch_size, self.N]), shape=[self.batch_size, N], name='subset_links_placeholder')
+        self.placeholders['subset_links'] = tf.placeholder_with_default(input=tf.ones([self.batch_size, self.N]), shape=[self.batch_size, self.N], name='subset_links_placeholder')
         print("[Conv Net] Placeholder preparation finished!")
         return
 
@@ -100,10 +94,10 @@ class Conv_Network():
     def iteration_step(self, allocs_state, placeholders):
         # flatten allocs_state as grid values
         grid_values = tf.reshape(allocs_state, [self.batch_size * self.N])
-        tx_grids = tf.SparseTensor(placeholders['tx_indices_hash'], grid_values, [self.batch_size, n_grids[0], n_grids[1], 1])
-        tx_grids = tf.sparse_reduce_sum(tx_grids, reduction_axes=3, keepdims=True)
-        rx_grids = tf.SparseTensor(placeholders['rx_indices_hash'], grid_values, [self.batch_size, n_grids[0], n_grids[1], 1])
-        rx_grids = tf.sparse_reduce_sum(rx_grids, reduction_axes=3, keepdims=True)
+        tx_grids = tf.SparseTensor(placeholders['tx_indices_hash'], grid_values, [self.batch_size, self.n_grids, self.n_grids, 1])
+        tx_grids = tf.sparse_reduce_sum(tx_grids, reduction_axes=3, keep_dims=True)
+        rx_grids = tf.SparseTensor(placeholders['rx_indices_hash'], grid_values, [self.batch_size, self.n_grids, self.n_grids, 1])
+        rx_grids = tf.sparse_reduce_sum(rx_grids, reduction_axes=3, keep_dims=True)
 
         with tf.variable_scope("conv_lyr", reuse=True):
             weights = tf.get_variable(name="w")
@@ -121,8 +115,8 @@ class Conv_Network():
         rx_surroundings_full = tf.gather_nd(params=tf.squeeze(tx_density_map_full, axis=-1), indices=placeholders['rx_indices_extract']) - pairing_tx_contrib_full
 
         direct_link_strength = pairing_tx_strength_full # amount_in_batch X N
-        direct_link_strength_max = tf.tile(tf.reduce_max(direct_link_strength, axis=-1, keepdims=True),[1, N]) # amount_in_batch X N
-        direct_link_strength_min = tf.tile(tf.reduce_min(direct_link_strength, axis=-1, keepdims=True),[1, N]) # amount_in_batch X N
+        direct_link_strength_max = tf.tile(tf.reduce_max(direct_link_strength, axis=-1, keepdims=True),[1, self.N]) # amount_in_batch X N
+        direct_link_strength_min = tf.tile(tf.reduce_min(direct_link_strength, axis=-1, keepdims=True),[1, self.N]) # amount_in_batch X N
         # Combine to obtain feature vectors
         pairs_features = tf.stack([tx_surroundings_full, rx_surroundings_full, direct_link_strength, direct_link_strength_max, direct_link_strength_min, allocs_state], axis=-1)
         with tf.variable_scope("fc_lyr1", reuse=True):
@@ -141,41 +135,23 @@ class Conv_Network():
             bias = tf.get_variable(name="b")
             fc_lyr3_outputs = self.fully_connected_layer_final(fc_lyr2_outputs, weights, bias)
 
-        network_outputs = tf.reshape(fc_lyr3_outputs, [-1, N])
+        network_outputs = tf.reshape(fc_lyr3_outputs, [-1, self.N])
 
         return network_outputs  # return the current state of allocations (before taking sigmoid)
 
 
     def build_network(self):
         with self.TFgraph.as_default():
-            self.get_placeholders()
-            self.get_parameters() # set up parameters to be reused in iteration_step function call
-            allocs_state = tf.ones(shape=[self.batch_size, N]) * placeholders['subset_links']
+            self.prepare_placeholders()
+            self.prepare_parameters() # set up parameters to be reused in iteration_step function call
+            allocs_state = tf.ones(shape=[self.batch_size, self.N]) * self.placeholders['subset_links']
             for i in range(self.n_feedback_steps):
                 allocs_state_logits = self.iteration_step(allocs_state, self.placeholders)
-                stochastic_mask = tf.cast(tf.random_uniform(shape=[self.batch_size, N]) >= 0.5, tf.float32)
-                allocs_state = allocs_state * (tf.ones([self.batch_size, N], tf.float32) - stochastic_mask) + tf.sigmoid(allocs_state_logits) * stochastic_mask
+                stochastic_mask = tf.cast(tf.random_uniform(shape=[self.batch_size, self.N]) >= 0.5, tf.float32)
+                allocs_state = allocs_state * (tf.ones([self.batch_size, self.N], tf.float32) - stochastic_mask) + tf.sigmoid(allocs_state_logits) * stochastic_mask
                 allocs_state = allocs_state * self.placeholders['subset_links']
             self.outputs_final = tf.cast(allocs_state >= 0.5, tf.int32, name="casting_to_scheduling_output")
         print("[Conv Net] Tensorflow Graph Built Successfully!")
         return
 
-    # Function for interpretability: start a standalone tensorflow session for convolutional filter visualization
-    def plot_weights(self):
-        self.build_network()
-        saver = tf.train.Saver()
-        with tf.Session() as sess:
-            saver.restore(sess, self.model_filename)
-            weights_tensorlist = tf.get_collection("conv");
-            conv_weights_tensor = weights_tensorlist[0]
-            assert conv_weights_tensor.name == "conv_lyr/w:0", "Tensor extraction failed, with wrong name: {}".format(conv_weights_tensor.name)
-            # the weights in convolutional computation are exponentialized
-            conv_weights_log_scale = sess.run(conv_weights_tensor)
-        conv_weights_log_scale = np.array(conv_weights_log_scale)
-        assert np.shape(conv_weights_log_scale) == (self.filter_size, self.filter_size, 1, 1), "Wrong shape: {}".format(np.shape(conv_weights_log_scale))
-        plt.title("Convolutioanl Filter Weights Visualization (log scale)")
-        img1 = plt.imshow(np.squeeze(conv_weights_log_scale), cmap=plt.get_cmap("Greys"), origin="lower")
-        plt.colorbar(img1, cmap=plt.get_cmap("Greys"))
-        plt.show()
-        print("[Conv Net] Convolutional Filter Visualization Complete!")
-        return
+

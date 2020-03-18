@@ -19,7 +19,7 @@ import general_parameters
 import helper_functions
 
 def generate_layouts(general_para, number_of_layouts):
-    N = general_para.number_of_links
+    N = general_para.n_links
     print("<<<<<<<<<<<<<{} layouts: {}>>>>>>>>>>>>".format(
         number_of_layouts, general_para.setting_str))
     layouts = []
@@ -28,8 +28,6 @@ def generate_layouts(general_para, number_of_layouts):
         layout, dist = helper_functions.layout_generate(general_para)
         layouts.append(layout)
         dists.append(dist)
-        if ((i + 1) % 5000 == 0):
-            print("At {}/{} layouts...".format(i + 1, number_of_layouts))
     layouts = np.array(layouts)
     dists = np.array(dists)
     assert np.shape(layouts)==(number_of_layouts, N, 4)
@@ -41,7 +39,7 @@ def generate_layouts(general_para, number_of_layouts):
 #        distances shape: number of layouts X N X N
 def compute_path_losses(general_para, distances):
     N = np.shape(distances)[-1]
-    assert N==general_para.number_of_links
+    assert N==general_para.n_links
 
     h1 = general_para.tx_height
     h2 = general_para.rx_height

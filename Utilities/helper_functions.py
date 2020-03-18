@@ -1,13 +1,25 @@
-# Utility functions used by other scripts
+# This script contains all the helper functions
+# for the work "Spatial Deep Learning for Wireless Scheduling",
+# available at https://ieeexplore.ieee.org/document/8664604.
+
+# For any reproduce, further research or development, please kindly cite our JSAC journal paper:
+# @Article{spatial_learn,
+#    author = "W. Cui and K. Shen and W. Yu",
+#    title = "Spatial Deep Learning for Wireless Scheduling",
+#    journal = "{\it IEEE J. Sel. Areas Commun.}",
+#    year = 2019,
+#    volume = 37,
+#    issue = 6,
+#    pages = "1248-1261",
+#    month = "June",
+# }
+
 
 import numpy as np
-import general_parameters
-import FPLinQ
-import time
 
 # Generate layout one at a time
 def layout_generate(general_para):
-    N = general_para.number_of_links
+    N = general_para.n_links
     # first, generate transmitters' coordinates
     tx_xs = np.random.uniform(low=0, high=general_para.field_length, size=[N,1])
     tx_ys = np.random.uniform(low=0, high=general_para.field_length, size=[N,1])
@@ -17,7 +29,7 @@ def layout_generate(general_para):
         for i in range(N):
             got_valid_rx = False
             while(not got_valid_rx):
-                pair_dist = np.random.uniform(low=general_para.shortest_directlink_length, high=general_para.longest_directlink_length)
+                pair_dist = np.random.uniform(low=general_para.shortest_directLink_length, high=general_para.longest_directLink_length)
                 pair_angles = np.random.uniform(low=0, high=np.pi*2)
                 rx_x = tx_xs[i] + pair_dist * np.cos(pair_angles)
                 rx_y = tx_ys[i] + pair_dist * np.sin(pair_angles)
@@ -35,7 +47,7 @@ def layout_generate(general_para):
                 # according to paper notation convention, Hij is from jth transmitter to ith receiver
                 distances[rx_index][tx_index] = np.linalg.norm(tx_coor - rx_coor)
         # Check whether a tx-rx link (potentially cross-link) is too close
-        if(np.min(distances)<general_para.shortest_crosslink_length):
+        if(np.min(distances)<general_para.shortest_crossLink_length):
             print("Created a layout with min tx-rx distance: {}, drop this and re-create Rxs!".format(np.min(distances)))
         else:
             break # go ahead and return the layout
@@ -58,14 +70,10 @@ def compute_rates(general_para, allocs, directlink_channel_losses, crosslink_cha
     rates = general_para.bandwidth * np.log2(1 + SINRs/general_para.SNR_gap) # layouts X N
     return rates
 
-def proportional_update_weights(weights, rates):
-    alpha = 0.95
-    return 1 / (alpha / weights + (1 - alpha) * rates)
-
-def get_directlink_channel_losses(channel_losses):
+def get_directLink_channel_losses(channel_losses):
     return np.diagonal(channel_losses, axis1=1, axis2=2)  # layouts X N
 
-def get_crosslink_channel_losses(channel_losses):
+def get_crossLink_channel_losses(channel_losses):
     N = np.shape(channel_losses)[-1]
     return channel_losses * ((np.identity(N) < 1).astype(float))
 
@@ -82,46 +90,25 @@ def add_fast_fading(channel_losses):
     channel_losses = channel_losses * fastfadings
     return channel_losses
 
-# Find binary approximation of importance weights, general_parallely over multiple layouts
-def binary_importance_weights_approx(general_para, weights):
-    N = general_para.pairs_amount
-    layouts_amount = np.shape(weights)[0]
-    assert np.shape(weights) == (layouts_amount, N)
-    sorted_indices = np.argsort(weights, axis=1)
-    weights_normalized = weights / np.linalg.norm(weights,axis=1,keepdims=True) # normalize to l2 norm 1
-    # initialize variables
-    binary_weights = np.zeros([layouts_amount, N])
-    max_dot_product = np.zeros(layouts_amount)
-    # use greedy to activate one at a time
-    for i in range(N-1, -1, -1):
-        binary_weights[np.arange(layouts_amount), sorted_indices[:,i]] = 1
-        binary_weights_normalized = binary_weights/np.linalg.norm(binary_weights,axis=1,keepdims=True)
-        current_dot_product = np.einsum('ij,ij->i', weights_normalized, binary_weights_normalized)
-        binary_weights[np.arange(layouts_amount), sorted_indices[:,i]] = (current_dot_product >= max_dot_product).astype(int)
-        max_dot_product = np.maximum(max_dot_product, current_dot_product)
-    return binary_weights
-
 def get_pair_indices(general_para, locations):
-    N = general_para.pairs_amount
+    N = general_para.n_links
     assert np.shape(locations)==(N,2), "[get_pair_indices] input locations argument with wrong shape: {}".format(np.shape(locations))
-    x_amount, y_amount = general_para.grid_amount
     locations_indices = np.floor(locations / np.array([general_para.cell_length, general_para.cell_length])).astype(int)
     # deal with stations located at upper boundaries
-    locations_indices[locations_indices[:,0]>=x_amount, 0] = x_amount-1
-    locations_indices[locations_indices[:,1]>=y_amount, 1] = y_amount-1
+    locations_indices[locations_indices[:,0] >= general_para.n_grids, 0] = general_para.n_grids - 1
+    locations_indices[locations_indices[:,1] >= general_para.n_grids, 1] = general_para.n_grids - 1
     assert np.shape(locations_indices)==(N,2), "[get_pair_indices] generated location indices with wrong shape: {}".format(locations_indices)
     return locations_indices
 
 def append_indices_array(general_para, indices):
     N = general_para.n_links
-    grid_amount = general_para.grid_amount
     n_layouts = np.shape(indices)[0]
     # Firstly, append at the end the indices that each link appears in the layout, parallelly over all layouts
     pad = np.tile(np.expand_dims(np.expand_dims(np.arange(n_layouts), -1), -1), [1, N, 1])
     indices_extract = np.concatenate([pad,indices], axis=2)
     assert np.shape(indices_extract) == (n_layouts, N, 3), "Wrong shape: {}".format(np.shape(indices_extract))
     # Secondly, append at the end the hash distinctive indices for summation among all links later
-    hash_step = np.max(grid_amount) + 1
+    hash_step = general_para.n_grids + 1
     hash_indices = np.dot(indices_extract, np.array([[hash_step**2], [hash_step],[1]]))
     indices_hash = np.concatenate([indices_extract, hash_indices], axis=-1)
     indices_hash = np.reshape(indices_hash, [n_layouts*N, 4])
@@ -131,7 +118,7 @@ def append_indices_array(general_para, indices):
 def process_layouts_inputs(general_para, layouts):
     N = general_para.n_links
     n_layouts = np.shape(layouts)[0]
-    assert np.shape(n_layouts) == (n_layouts, N, 4)
+    assert np.shape(layouts) == (n_layouts, N, 4)
     data_dict = dict()
     data_dict['layouts'] = layouts
     data_dict['pair_dists'] = np.linalg.norm(layouts[:, :, 0:2] - layouts[:, :, 2:4], axis=2)
@@ -153,32 +140,6 @@ def process_layouts_inputs(general_para, layouts):
     data_dict['tx_indices_ext'], data_dict['tx_indices_hash'] = append_indices_array(general_para, data_dict['tx_indices'])
     data_dict['rx_indices_ext'], data_dict['rx_indices_hash'] = append_indices_array(general_para, data_dict['rx_indices'])
     return data_dict
-
-# gains_diagonal & gains_nondiagonal: layouts_amount X N (X N)
-def greedy_sumrate(general_para, gains_diagonal, gains_nondiagonal):
-    layouts_amount = np.shape(gains_diagonal)[0]; N = general_para.pairs_amount
-    sorted_links_indices = np.argsort(gains_diagonal, axis=-1)
-    # Variables to update
-    previous_sum_rates = np.zeros(layouts_amount)
-    allocs = np.zeros([layouts_amount, N])
-    current_interferences = np.zeros([layouts_amount, N])
-    start_time = time.time()
-    for i in range(N - 1, -1, -1):  # iterate from highest indices since strongest links are sorted last
-        allocs[np.arange(layouts_amount), sorted_links_indices[:, i]] = 1
-        current_signals = allocs * gains_diagonal  # O(N); shape: [layouts X N]
-        current_interferences += gains_nondiagonal[np.arange(layouts_amount), :, sorted_links_indices[:, i]]  # O(1); shape: [layouts X N]
-        current_SINRs = current_signals / (current_interferences + general_para.output_noise_power / general_para.tx_power)  # O(N); shape: [layouts X N]
-        current_rates = general_para.bandwidth * np.log2(1 + current_SINRs / general_para.SNR_gap)  # O(N); shape: [layouts X N] (This is computed precisely as rate values for capping)
-        # Perform capping
-        # current_rates, _ = rate_capping(general_para, current_rates) # O(N); shape: [layouts X N]
-        current_sum_rates = np.sum(current_rates, axis=-1)  # O(N); shape: [layouts]
-        # schedule the ith shortest pair for samples that have sum rate improved
-        allocs[np.arange(layouts_amount), sorted_links_indices[:, i]] = (current_sum_rates > previous_sum_rates).astype(int)
-        # remove the interference corresponding to links got turned off
-        current_interferences -= gains_nondiagonal[np.arange(layouts_amount), :, sorted_links_indices[:, i]] * np.expand_dims((current_sum_rates <= previous_sum_rates).astype(int), axis=-1)
-        previous_sum_rates = np.maximum(current_sum_rates, previous_sum_rates)
-    run_time = time.time() - start_time
-    return allocs, run_time
 
 def visualize_schedules_on_layout(ax, layout, schedules, plot_title):
     N = np.shape(layout)[0]

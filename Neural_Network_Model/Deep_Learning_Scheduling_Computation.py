@@ -20,20 +20,23 @@ import Convolutional_Neural_Network_Model
 import sys
 sys.path.append("../Utilities/")
 import helper_functions
+import matplotlib.pyplot as plt
+
 
 # Scheduling for Sum-Rate Optimization
 def sumRate_scheduling(general_para, layouts):
     N = general_para.n_links
     n_layouts = np.shape(layouts)[0]
     neural_net = Convolutional_Neural_Network_Model.Conv_Network(general_para, n_layouts)
+
     neural_net.build_network()
     neural_net_inputs = helper_functions.process_layouts_inputs(general_para, layouts)
 
     with neural_net.TFgraph.as_default():
         saver = tf.train.Saver()
         with tf.Session() as sess:
-            print("Restoring model from: {}".format(neural_net.model_filename))
             saver.restore(sess, neural_net.model_filename)
+            print("Restored model from: {}!".format(neural_net.model_filename))
             schedules = sess.run(neural_net.outputs_final,
                                 feed_dict={neural_net.placeholders['tx_indices_hash']: neural_net_inputs['tx_indices_hash'],
                                            neural_net.placeholders['rx_indices_hash']: neural_net_inputs['rx_indices_hash'],
@@ -43,7 +46,7 @@ def sumRate_scheduling(general_para, layouts):
                                            neural_net.placeholders['pair_rx_convfilter_indices']: neural_net_inputs['pair_rx_convfilter_indices'] })
     schedules = np.array(schedules)
     assert np.shape(schedules) == (n_layouts, N), "Wrong shape: {}".format(np.shape(schedules))
-
+    print("Successfully Computed Neural Network's Scheduling for Sum-Rate Optimization!")
     return schedules
 
 
@@ -59,8 +62,8 @@ def logUtil_scheduling(general_para, layouts, gains_diagonal, gains_nondiagonal)
     with neural_net.TFgraph.as_default():
         saver = tf.train.Saver()
         with tf.Session() as sess:
-            print("Restoring model from: {}".format(neural_net.model_filename))
             saver.restore(sess, neural_net.model_filename)
+            print("Restored model from: {}!".format(neural_net.model_filename))
             schedules_all_timeSlots = []
             rates_all_timeSlots = []
             subsets_all_timeSlots = []
@@ -96,3 +99,28 @@ def logUtil_scheduling(general_para, layouts, gains_diagonal, gains_nondiagonal)
     assert np.shape(prop_weights_all_timeSlots) == (n_layouts, n_timeSlots, N), "Wrong shape: {}".format(np.shape(prop_weights_all_timeSlots))
 
     return schedules_all_timeSlots, rates_all_timeSlots, subsets_all_timeSlots
+
+
+# Function for interpretability: start a standalone tensorflow session for convolutional filter visualization
+def visualize_convolutional_filter(general_para):
+    # number of layouts here doesn't matter just for weight visualization
+    neural_net = Convolutional_Neural_Network_Model.Conv_Network(general_para, 10)
+    neural_net.build_network()
+    with neural_net.TFgraph.as_default():
+        saver = tf.train.Saver()
+        with tf.Session() as sess:
+            saver.restore(sess, neural_net.model_filename)
+            print("Restored model from: {}!".format(neural_net.model_filename))
+            weights_tensorlist = tf.get_collection("conv")
+            conv_weights_tensor = weights_tensorlist[0]
+            assert conv_weights_tensor.name == "conv_lyr/w:0", "Tensor extraction failed, with wrong name: {}".format(conv_weights_tensor.name)
+            # the weights in convolutional computation are exponentialized
+            conv_weights_log_scale = sess.run(conv_weights_tensor)
+    conv_weights_log_scale = np.array(conv_weights_log_scale)
+    assert np.shape(conv_weights_log_scale) == (neural_net.filter_size, neural_net.filter_size, 1, 1), "Wrong shape: {}".format(np.shape(conv_weights_log_scale))
+    plt.title("Convolutioanl Filter Weights Visualization (log scale)")
+    img1 = plt.imshow(np.squeeze(conv_weights_log_scale), cmap=plt.get_cmap("Greys"), origin="lower")
+    plt.colorbar(img1, cmap=plt.get_cmap("Greys"))
+    plt.show()
+    print("Convolutional Filter Visualization Complete!")
+    return

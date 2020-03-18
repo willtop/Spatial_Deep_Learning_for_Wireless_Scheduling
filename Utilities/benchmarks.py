@@ -1,22 +1,36 @@
-# all benchmarks for evaluating different objectives
+# This script contains all benchmarks for sum-rate and log-utility optimization
+# for the work "Spatial Deep Learning for Wireless Scheduling",
+# available at https://ieeexplore.ieee.org/document/8664604.
+
+# For any reproduce, further research or development, please kindly cite our JSAC journal paper:
+# @Article{spatial_learn,
+#    author = "W. Cui and K. Shen and W. Yu",
+#    title = "Spatial Deep Learning for Wireless Scheduling",
+#    journal = "{\it IEEE J. Sel. Areas Commun.}",
+#    year = 2019,
+#    volume = 37,
+#    issue = 6,
+#    pages = "1248-1261",
+#    month = "June",
+# }
+
 import numpy as np
 import FPLinQ
-import utils
+import helper_functions
 from scipy.optimize import linprog
 
 
 # Wrapper function to call FPLinQ optimizer
-def FP(general_para, gains, weights, scheduling_output=False):
+def FP(general_para, gains, weights):
     number_of_layouts, N, _ = np.shape(gains)
-    assert N==general_para.number_of_links
+    assert N==general_para.n_links
     assert np.shape(weights)==(number_of_layouts, N)
     FP_allocs = FPLinQ.FP_optimize(general_para, gains, weights)
-    if(scheduling_output):
-        FP_allocs = (np.sqrt(FP_allocs) > 0.5).astype(int)
-    return FP_allocs
+    FP_schedules = (np.sqrt(FP_allocs) > 0.5).astype(int)
+    return FP_schedules
 
 def Strongest_Link(general_para, gains_diagonal):
-    N, number_of_layouts = general_para.number_of_links, np.shape(gains_diagonal)[0]
+    N, number_of_layouts = general_para.n_links, np.shape(gains_diagonal)[0]
     assert np.shape(gains_diagonal)==(number_of_layouts, N)
     strongest_links = np.argmax(gains_diagonal, axis=1)
     allocs = np.zeros([number_of_layouts, N])
@@ -24,7 +38,7 @@ def Strongest_Link(general_para, gains_diagonal):
     return allocs
 
 def convex_Dinkelbach_onestep(general_para, gains_diagonal, gains_nondiagonal, y):
-    N = general_para.number_of_links
+    N = general_para.n_links
     assert np.shape(gains_diagonal) == (N,)
     assert np.shape(gains_nondiagonal) == (N,N)
     # objective
@@ -45,7 +59,7 @@ def convex_Dinkelbach_onestep(general_para, gains_diagonal, gains_nondiagonal, y
 
 # Taking one layout a time
 def maxmin_Dinkelbach_solver(general_para, gains_diagonal, gains_nondiagonal):
-    N = general_para.number_of_links
+    N = general_para.n_links
     assert np.shape(gains_diagonal) == (N, )
     assert np.shape(gains_nondiagonal) == (N, N)
     x = np.ones(N, dtype=np.float64)
@@ -71,7 +85,7 @@ def maxmin_Dinkelbach_solver(general_para, gains_diagonal, gains_nondiagonal):
 # Due to large computation time, try to load first if results have been computed
 def MaxMin_Dinkelbach(general_para, gains_diagonal, gains_nondiagonal):
     print("==============================Max Min Dinkelbach Power Control==================")
-    N, number_of_layouts = general_para.number_of_links, np.shape(gains_diagonal)[0]
+    N, number_of_layouts = general_para.n_links, np.shape(gains_diagonal)[0]
     assert np.shape(gains_diagonal) == (number_of_layouts, N)
     assert np.shape(gains_nondiagonal) == (number_of_layouts, N, N)
     allocs_store_path = general_para.test_dir+general_para.file_names["MinMaxDinkelbach"]
@@ -104,7 +118,7 @@ def MaxMin_Dinkelbach(general_para, gains_diagonal, gains_nondiagonal):
 
 def directLink_inverse_proportions(general_para, gains_diagonal):
     print("==============================Direct Link Inverse Proportions=====================================")
-    N, number_of_layouts = general_para.number_of_links, np.shape(gains_diagonal)[0]
+    N, number_of_layouts = general_para.n_links, np.shape(gains_diagonal)[0]
     assert np.shape(gains_diagonal) == (number_of_layouts, N)
     allocs = np.ones([number_of_layouts, N]) * np.min(gains_diagonal, axis=1, keepdims=True) / gains_diagonal
     return allocs
@@ -121,7 +135,7 @@ def greedy_scheduling(general_para, gains_diagonal, gains_nondiagonal, prop_weig
     for j in range(N - 1, -1, -1):
         # schedule the ith shortest links
         allocs[np.arange(number_of_layouts), sorted_links_indices[:, j]] = 1
-        rates = utils.compute_rates(general_para, allocs, gains_diagonal, gains_nondiagonal)
+        rates = helper_functions.compute_rates(general_para, allocs, gains_diagonal, gains_nondiagonal)
         weighted_sum_rates = np.sum(rates * prop_weights, axis=1)  # (number of layouts,)
         # schedule the ith shortest pair for samples that have sum rate improved
         allocs[np.arange(number_of_layouts), sorted_links_indices[:, j]] = (weighted_sum_rates > previous_weighted_sum_rates).astype(int)

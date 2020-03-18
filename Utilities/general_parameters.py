@@ -23,7 +23,7 @@ class parameters():
         self.field_length = 1000
         self.shortest_directLink_length = 2
         self.longest_directLink_length = 65
-        self.shortest_crossLink_length = 5
+        self.shortest_crossLink_length = 1
         self.bandwidth = 5e6
         self.carrier_f = 2.4e9
         self.tx_height = 1.5
@@ -36,6 +36,7 @@ class parameters():
         self.output_noise_power = self.input_noise_power
         self.SNR_gap_dB = 6
         self.SNR_gap = np.power(10, self.SNR_gap_dB/10)
-        # occupancy grid setting
+        self.setting_str = "{}_links_{}X{}_{}_{}_length".format(self.n_links, self.field_length, self.field_length, self.shortest_directLink_length, self.longest_directLink_length)
+        # 2D occupancy grid setting
         self.cell_length = 5
         self.n_grids = np.round(self.field_length/self.cell_length).astype(int)

@@ -1,4 +1,18 @@
-# Implementation of FPLinQ algorithm including iterative optimization
+# This script contains the python implementation of FPLinQ algorithm (original work by K. Shen and W. Yu)
+# for the work "Spatial Deep Learning for Wireless Scheduling",
+# available at https://ieeexplore.ieee.org/document/8664604.
+
+# For any reproduce, further research or development, please kindly cite our JSAC journal paper:
+# @Article{spatial_learn,
+#    author = "W. Cui and K. Shen and W. Yu",
+#    title = "Spatial Deep Learning for Wireless Scheduling",
+#    journal = "{\it IEEE J. Sel. Areas Commun.}",
+#    year = 2019,
+#    volume = 37,
+#    issue = 6,
+#    pages = "1248-1261",
+#    month = "June",
+# }
 
 import numpy as np
 import helper_functions
@@ -8,8 +22,8 @@ def FP_optimize(general_para, g, weights):
     number_of_samples, N, _ = np.shape(g)
     assert np.shape(g)==(number_of_samples, N, N)
     assert np.shape(weights)==(number_of_samples, N)
-    g_diag = helper_functions.get_directlink_channel_losses(g)
-    g_nondiag = helper_functions.get_crosslink_channel_losses(g)
+    g_diag = helper_functions.get_directLink_channel_losses(g)
+    g_nondiag = helper_functions.get_crossLink_channel_losses(g)
     # For matrix multiplication and dimension matching requirement, reshape into column vectors
     weights = np.expand_dims(weights, axis=-1)
     g_diag = np.expand_dims(g_diag, axis=-1)
