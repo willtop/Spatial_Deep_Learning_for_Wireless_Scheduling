@@ -9,5 +9,5 @@ For any reproduce, further research or development, please kindly cite our JSAC 
     volume = 37,
     issue = 6,
     pages = "1248-1261",
-    month = "June",
+    month = "June"
 }
