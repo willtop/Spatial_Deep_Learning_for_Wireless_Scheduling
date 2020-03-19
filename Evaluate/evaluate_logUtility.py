@@ -232,7 +232,7 @@ if(__name__ =='__main__'):
             if (method_key in ["All Active", "Random", "Max Weight Only"]):
                 continue  # Don't plot for these trivial allocations
             plt.suptitle("{} Sequential Scheduling on {}th Layout".format(method_key, layout_index))
-            for i in range(1, 8):  # visualize first several time steps for each layout
+            for i in range(1, 9):  # visualize first several time steps for each layout
                 ax = plt.subplot(2, 4, i)
                 ax.set_title("{}th TimeSlot".format(i))
                 ax.set_xticklabels([])
