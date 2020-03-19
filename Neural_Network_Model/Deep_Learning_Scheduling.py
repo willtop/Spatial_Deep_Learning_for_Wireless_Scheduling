@@ -68,8 +68,8 @@ def logUtility_scheduling(general_para, layouts, gains_diagonal, gains_nondiagon
             supersets_all_timeSlots = []
             proportional_fairness_weights = np.ones([n_layouts, N])
             proportional_fairness_weights_binary = np.ones([n_layouts, N])
-            for i in range(n_timeSlots):
-                if (((i+1) / n_timeSlots * 100) % 20 == 0):
+            for i in range(1, n_timeSlots+1):
+                if ((i / n_timeSlots * 100) % 20 == 0):
                     print("{}/{} time slots".format(i, n_timeSlots))
                 schedules = sess.run(neural_net.outputs_final,
                                       feed_dict={neural_net.placeholders['tx_indices_hash']: neural_net_inputs['tx_indices_hash'],

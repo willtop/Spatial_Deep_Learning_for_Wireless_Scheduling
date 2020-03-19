@@ -95,9 +95,9 @@ class Conv_Network():
         # flatten allocs_state as grid values
         grid_values = tf.reshape(allocs_state, [self.batch_size * self.N])
         tx_grids = tf.SparseTensor(placeholders['tx_indices_hash'], grid_values, [self.batch_size, self.n_grids, self.n_grids, 1])
-        tx_grids = tf.sparse_reduce_sum(tx_grids, reduction_axes=3, keep_dims=True)
+        tx_grids = tf.sparse_reduce_sum(tx_grids, reduction_axes=3, keepdims=True)
         rx_grids = tf.SparseTensor(placeholders['rx_indices_hash'], grid_values, [self.batch_size, self.n_grids, self.n_grids, 1])
-        rx_grids = tf.sparse_reduce_sum(rx_grids, reduction_axes=3, keep_dims=True)
+        rx_grids = tf.sparse_reduce_sum(rx_grids, reduction_axes=3, keepdims=True)
 
         with tf.variable_scope("conv_lyr", reuse=True):
             weights = tf.get_variable(name="w")

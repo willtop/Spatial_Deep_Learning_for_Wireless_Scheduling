@@ -182,7 +182,7 @@ def visualize_superSet_on_layout(ax, layout, superset):
     rx_locs = layout[:, 2:4]
     for i in range(N):  # label all links within the selected superset
         if(superset[i]!=0):
-            ax.plot([tx_locs[i, 0], rx_locs[i, 0]], [tx_locs[i, 1], rx_locs[i, 1]], c='r', linewidth=3.5, alpha=0.3)
+            ax.plot([tx_locs[i, 0], rx_locs[i, 0]], [tx_locs[i, 1], rx_locs[i, 1]], c='r', linewidth=4.0, alpha=0.3)
     return
 
 def visualize_schedules_on_layout(ax, layout, schedules):
@@ -193,5 +193,5 @@ def visualize_schedules_on_layout(ax, layout, schedules):
     rx_locs = layout[:, 2:4]
     for i in range(N):  # plot all activated links
         if(schedules[i] != 0):
-            ax.plot([tx_locs[i, 0], rx_locs[i, 0]], [tx_locs[i, 1], rx_locs[i, 1]])
+            ax.plot([tx_locs[i, 0], rx_locs[i, 0]], [tx_locs[i, 1], rx_locs[i, 1]], c='k')
     return

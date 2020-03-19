@@ -197,9 +197,9 @@ if(__name__ =='__main__'):
         print("[{}]: {}; ".format(method_key, log_utilities, end=""))
     print("\n")
 
-    print("[Bottom 5-Percentile Mean Rate over all links among all layouts]:")
+    print("[Bottom 5-Percentile Mean Rate (in Mbps) over all links among all layouts]:")
     for method_key in allocs_all_methods.keys():
-        mean_rate_5pert = np.percentile((link_mean_rates_all_methods[method_key]).flatten(), 5)
+        mean_rate_5pert = np.percentile((link_mean_rates_all_methods[method_key]).flatten(), 5)/1e6
         print("[{}]: {}; ".format(method_key, mean_rate_5pert), end="")
     print("\n")
 
@@ -210,7 +210,7 @@ if(__name__ =='__main__'):
     line_styles["FP Not Knowing Fading"] = "b:"
     line_styles["FP Binary Re-Weighting"] = 'm-.'
     line_styles["Weighted Greedy"] = 'k--'
-    line_styles["Max Weight Only"] = 'c-.'
+    line_styles["Max Weight"] = 'c-.'
     line_styles["All Active"] = 'y-'
     line_styles["Random"] = 'm--'
     fig = plt.figure()
@@ -219,7 +219,7 @@ if(__name__ =='__main__'):
     plt.ylabel("Cumulative Distribution Function")
     plt.grid(linestyle="dotted")
     ax.set_xlim(left=0, right=0.45*global_max_mean_rate/1e6)
-    ax.set_ylim(ymin=0)
+    ax.set_ylim(bottom=0)
     for method_key in allocs_all_methods.keys():
         plt.plot(np.sort(link_mean_rates_all_methods[method_key])/1e6, np.arange(1, n_layouts*N + 1) / (n_layouts*N), line_styles[method_key], label=method_key)
     plt.legend()
@@ -231,16 +231,16 @@ if(__name__ =='__main__'):
         for method_key in allocs_all_methods.keys():
             if (method_key in ["All Active", "Random", "Max Weight Only"]):
                 continue  # Don't plot for these trivial allocations
-            plt.title("{} Sequential Scheduling on {}th Layout".format(method_key, layout_index))
-            for i in range(1, 16):  # visualize first several time steps for each layout
-                ax = fig.add_subplot(3, 5, i)
+            plt.suptitle("{} Sequential Scheduling on {}th Layout".format(method_key, layout_index))
+            for i in range(1, 8):  # visualize first several time steps for each layout
+                ax = plt.subplot(2, 4, i)
                 ax.set_title("{}th TimeSlot".format(i))
                 ax.set_xticklabels([])
                 ax.set_yticklabels([])
                 helper_functions.visualize_layout(ax, layouts[layout_index])
                 if method_key in superSets_all_methods.keys():
-                    helper_functions.visualize_superset_on_layout(ax, layouts[layout_index], superSets_all_methods[method_key][layout_index])
-                helper_functions.visualize_schedules_on_layout(ax, layouts[layout_index], allocs_all_methods[method_key][layout_index])
+                    helper_functions.visualize_superSet_on_layout(ax, layouts[layout_index], superSets_all_methods[method_key][layout_index][i])
+                helper_functions.visualize_schedules_on_layout(ax, layouts[layout_index], allocs_all_methods[method_key][layout_index][i])
             plt.subplots_adjust(wspace=0, hspace=0)
             plt.show()
 

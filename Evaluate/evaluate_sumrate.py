@@ -57,9 +57,9 @@ if(__name__ =='__main__'):
 
     allocs_all_methods["Deep Learning"] = Deep_Learning_Scheduling.sumRate_scheduling(general_para, layouts)
 
-    allocs_all_methods["Greedy"] = benchmarks.Greedy_Scheduling(general_para, directLink_channel_losses, crossLink_channel_losses, np.ones(n_layouts, N))
+    allocs_all_methods["Greedy"] = benchmarks.Greedy_Scheduling(general_para, directLink_channel_losses, crossLink_channel_losses, np.ones([n_layouts, N]))
 
-    allocs_all_methods["Strongest Link Only"] = benchmarks.Strongest_Link_scheduling(general_para, directLink_channel_losses)
+    allocs_all_methods["Strongest Link Only"] = benchmarks.Strongest_Link_Scheduling(general_para, directLink_channel_losses)
 
     allocs_all_methods["Random"] = np.random.randint(2, size=[n_layouts, N]).astype(float)
 
@@ -104,7 +104,7 @@ if(__name__ =='__main__'):
     ax.set_ylim(bottom=0)
     for method_key in allocs_all_methods.keys():
         sum_rates = np.sort(sum_rates_all_methods[method_key])
-        plt.plot(sum_rates/1e6, np.arange(1, n_layouts) / n_layouts, line_styles[method_key], label=method_key)
+        plt.plot(sum_rates/1e6, np.arange(1, n_layouts+1) / n_layouts, line_styles[method_key], label=method_key)
     plt.legend()
     plt.show()
 
@@ -113,7 +113,7 @@ if(__name__ =='__main__'):
     for method_key in allocs_all_methods.keys():
         if (method_key in ["All Active", "Random", "Strongest Link Only"]):
             continue  # Don't plot for these trivial allocations
-        plt.title("{} Scheduling".format(method_key))
+        plt.suptitle("{} Scheduling".format(method_key))
         for i, layout_index in enumerate(layout_indices):
             ax = plt.subplot(221 + i)
             ax.set_title("{}th Layout".format(layout_index))
